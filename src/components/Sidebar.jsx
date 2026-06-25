@@ -12,21 +12,21 @@ const AlertIcon = ({ size = 16 }) => (
   </svg>
 )
 
-// function AlertDisclaimer({ alerta }) {
-//   const [open, setOpen] = useState(false)
-//   return (
-//     <div className="alert-disclaimer" onClick={() => setOpen(o => !o)}>
-//       <div className="alert-header">
-//         <span className="alert-icon" style={{ color: '#dc2626' }}>
-//           <AlertIcon />
-//         </span>
-//         <span className="alert-title">{alerta.titulo}</span>
-//         <span className="alert-cta">Clique para {open ? 'fechar' : 'ver'}.</span>
-//       </div>
-//       {open && <div className="alert-body">{alerta.descricao.trim()}</div>}
-//     </div>
-//   )
-// }
+function AlertDisclaimer({ alerta }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="alert-disclaimer" onClick={() => setOpen(o => !o)}>
+      <div className="alert-header">
+        <span className="alert-icon" style={{ color: '#dc2626' }}>
+          <AlertIcon />
+        </span>
+        <span className="alert-title">{alerta.titulo}</span>
+        <span className="alert-cta">Clique para {open ? 'fechar' : 'ver'}.</span>
+      </div>
+      {open && <div className="alert-body">{alerta.descricao.trim()}</div>}
+    </div>
+  )
+}
 
 function Sidebar({ stopHash, onClose }) {
   const [loading, setLoading] = useState(true)
@@ -241,7 +241,7 @@ function Sidebar({ stopHash, onClose }) {
   if (!stopHash) return null
 
   const corTexto = (corBg) =>
-    corBg && (corBg.toLowerCase() === '#bbff00' || corBg.toLowerCase() === '#ffd200')
+    corBg && (corBg.toLowerCase() === '#bbff00' || corBg.toLowerCase() === '#ffd200' || corBg.toLowerCase() === '#ff8200')
       ? '#000000' : '#ffffff'
 
   // ── TABELA MODO RETRAÍDO ──
