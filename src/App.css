@@ -93,11 +93,6 @@ html, body, #root {
     50%  { opacity: 0.1; background-color: #cbd5e1; }
     100% { opacity: 1; }
 }
-@keyframes pulseGps {
-    0%   { background-color: rgba(34, 197, 94, 0.08); }
-    50%  { background-color: rgba(34, 197, 94, 0.2);  }
-    100% { background-color: rgba(34, 197, 94, 0.08); }
-}
 
 /* ── Tabela base ── */
 .bus-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -109,13 +104,11 @@ html, body, #root {
     background: linear-gradient(0deg, #333e49, #6b737b);
 }
 .bus-table td { padding: 12px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
-/* pulseGps sobrepõe a zebra via mix do animation — usa opacity em vez de background sólido */
 .linha-com-gps td { animation: pulseGps 2s infinite ease-in-out; }
 
 /* ── MODO RETRAÍDO: colunas Horário | Linha | Destino ── */
 .bus-table th.col-horario, .bus-table td.col-horario { width: 20%; text-align: center; }
 .bus-table th.col-linha,   .bus-table td.col-linha   { width: 1%; white-space: nowrap; text-align: center; }
-/* Destino: escuro e legível nas células, cabeçalho herda #ececec do th */
 .bus-table th.col-destino  { text-align: left; padding-left: 12px; }
 .bus-table td.col-destino  { text-align: left; padding-left: 12px; color: #1e293b; font-weight: 600; }
 
@@ -152,7 +145,7 @@ html, body, #root {
    MODO EXPANDIDO (TOTEM TERMINAL) — apenas em telas > 800px
    ========================================================================== */
 
-#sidebar.expanded .sidebar-header { padding: 24px 32px; padding-right: 140px; }
+#sidebar.expanded .sidebar-header { padding: 24px 32px}
 #sidebar.expanded .sidebar-header h2 { font-size: 60px; font-weight: 400; }
 #sidebar.expanded .sidebar-header p  { font-size: 20px; }
 
@@ -182,7 +175,9 @@ html, body, #root {
 }
 
 #sidebar.expanded .bus-table th { padding: 20px; font-size: 32px; font-weight: 700; }
-#sidebar.expanded .bus-table td { padding: 26px 16px; }
+
+/* Força alinhamento vertical ao topo para fazer o efeito grid lado esquerdo / lado direito */
+#sidebar.expanded .bus-table td { padding: 26px 16px; vertical-align: top; }
 
 #sidebar.expanded .badge-linha {
     font-size: 64px; padding: 8px 24px;
@@ -193,7 +188,7 @@ html, body, #root {
 .destino-principal { font-size: 56px; font-weight: 400; color: #000000; line-height: 1.15; }
 .destino-sub       { font-size: 28px; font-weight: 400; color: #64748b; margin-top: 4px; }
 
-/* Horários expandidos: 3 lado a lado, alinhados à esquerda em colunas fixas */
+/* Horários expandidos */
 .horarios-expandidos {
     display: grid;
     grid-template-columns: repeat(3, 200px);
@@ -208,13 +203,35 @@ html, body, #root {
 #sidebar.expanded .tempo-agora {
     font-size: 60px; font-weight: 500;
 }
-/* Horário com prefixo (GPS): mais grosso */
-#sidebar.expanded .tempo-chegada.com-prefixo {
-    font-weight: 600;
-}
-/* "Agora" com prefixo: bem grosso; sem prefixo: mantém 500 herdado */
-#sidebar.expanded .tempo-agora.com-prefixo {
-    font-weight: 800;
-}
+#sidebar.expanded .tempo-chegada.com-prefixo { font-weight: 600; }
+#sidebar.expanded .tempo-agora.com-prefixo { font-weight: 800; }
 #sidebar.expanded .label-amanha  { font-size: 28px; margin-top: 4px; font-weight: 400; }
 #sidebar.expanded .label-prefixo { font-size: 45px; margin-top: 4px; font-weight: 400; }
+
+/* ── Alert disclaimer ── */
+.alert-disclaimer {
+    background: rgba(185, 28, 28, 0.12);
+    border: 1px solid rgba(185, 28, 28, 0.35);
+    border-radius: 8px;
+    padding: 7px 16px;
+    margin: 6px 0 0 0; /* Margem apenas no topo para distanciar do destino */
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    transition: background 0.15s;
+    width: 100%;
+}
+.alert-disclaimer:hover { background: rgba(185, 28, 28, 0.18); }
+.alert-header { display: flex; align-items: center; gap: 8px; }
+.alert-icon { flex-shrink: 0; width: 16px; height: 16px; color: #dc2626; }
+.alert-title { font-size: 13px; font-weight: 700; color: #991b1b; flex: 1; }
+.alert-cta { font-size: 12px; font-style: italic; font-weight: 300; color: #991b1b; white-space: nowrap; margin-left: 4px; }
+.alert-body { font-size: 12px; color: #7f1d1d; line-height: 1.5; padding-top: 8px; margin-top: 4px; border-top: 1px solid rgba(185, 28, 28, 0.2); }
+
+/* Modo expandido ajustes de fonte do alerta */
+#sidebar.expanded .alert-title { font-size: 22px; }
+#sidebar.expanded .alert-cta   { font-size: 18px; }
+#sidebar.expanded .alert-icon  { width: 28px; height: 28px; }
+#sidebar.expanded .alert-body  { font-size: 18px; }

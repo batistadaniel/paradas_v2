@@ -1,6 +1,32 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { FaExpand } from "react-icons/fa"
+import { IoMdContract } from "react-icons/io"
+import { IoCloseOutline } from "react-icons/io5"
 
 const BASE_API = 'https://api-df-no-ponto.vercel.app/paradas'
+
+const AlertIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"
+    width={size} height={size} fill="currentColor" aria-hidden="true">
+    <path d="M506.3 417l-213.3-364c-16.33-28-57.54-28-73.98 0l-213.2 364C-10.59 444.9 9.849 480 42.74 480h426.6C502.1 480 522.6 445 506.3 417zM232 168c0-13.25 10.75-24 24-24S280 154.8 280 168v128c0 13.25-10.75 24-23.1 24S232 309.3 232 296V168zM256 416c-17.36 0-31.44-14.08-31.44-31.44c0-17.36 14.07-31.44 31.44-31.44s31.44 14.08 31.44 31.44C287.4 401.9 273.4 416 256 416z"/>
+  </svg>
+)
+
+// function AlertDisclaimer({ alerta }) {
+//   const [open, setOpen] = useState(false)
+//   return (
+//     <div className="alert-disclaimer" onClick={() => setOpen(o => !o)}>
+//       <div className="alert-header">
+//         <span className="alert-icon" style={{ color: '#dc2626' }}>
+//           <AlertIcon />
+//         </span>
+//         <span className="alert-title">{alerta.titulo}</span>
+//         <span className="alert-cta">Clique para {open ? 'fechar' : 'ver'}.</span>
+//       </div>
+//       {open && <div className="alert-body">{alerta.descricao.trim()}</div>}
+//     </div>
+//   )
+// }
 
 function Sidebar({ stopHash, onClose }) {
   const [loading, setLoading] = useState(true)
@@ -11,8 +37,8 @@ function Sidebar({ stopHash, onClose }) {
   const [isRefresh, setIsRefresh] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [horaBrasilia, setHoraBrasilia] = useState('')
-  // true somente se a janela estiver maximizada (≥ screen.availWidth - 10)
   const [podeExpandir, setPodeExpandir] = useState(false)
+  const sidebarRef = useRef(null)
 
   // Relógio Brasília
   useEffect(() => {
@@ -22,18 +48,34 @@ function Sidebar({ stopHash, onClose }) {
     return () => clearInterval(t)
   }, [])
 
-  // Detecta se a janela está maximizada
+  // Detecta janela maximizada
   useEffect(() => {
     const verificar = () => {
       const maximizado = window.innerWidth >= (window.screen.availWidth - 10)
       setPodeExpandir(maximizado)
-      // se a janela encolher enquanto expandido, recolhe
       if (!maximizado) setIsExpanded(false)
     }
     verificar()
     window.addEventListener('resize', verificar)
     return () => window.removeEventListener('resize', verificar)
   }, [])
+
+  // Clique fora no mobile fecha o sidebar
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (window.innerWidth > 800) return
+      if (!stopHash) return
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [stopHash, onClose])
 
   // Bloqueia zoom quando expandido
   useEffect(() => {
@@ -62,7 +104,7 @@ function Sidebar({ stopHash, onClose }) {
     }
   }, [isExpanded])
 
-  const fetchPrevisoes = async (ehRefresh = false) => {
+  const fetchPrevisoes = useCallback(async (ehRefresh = false) => {
     if (!stopHash) return
     if (!ehRefresh) setLoading(true)
     setIsRefresh(ehRefresh)
@@ -77,7 +119,6 @@ function Sidebar({ stopHash, onClose }) {
       clearTimeout(tid1)
 
       const { nome, codigo } = dadosHash.parada
-      // Se nome for "null" (string) ou ausente, exibe só o código; senão exibe "Código | Nome"
       const nomeExibido = (!nome || nome === 'null')
         ? (codigo || 'Parada')
         : (codigo ? `${codigo} | ${nome}` : nome)
@@ -88,21 +129,30 @@ function Sidebar({ stopHash, onClose }) {
       if (!resProximos.ok) throw new Error()
       const dadosProximos = await resProximos.json()
 
-      processarDados(dadosProximos.linhas)
+      processarDados(dadosProximos.linhas, dadosProximos.alertas || [])
       setError(false)
-    } catch {
+    } catch (err) {
+      console.error("Erro ao buscar previsões:", err)
       if (!ehRefresh) setError(true)
     } finally {
       setLoading(false)
     }
-  }
+  }, [stopHash])
 
-  const processarDados = (linhasAlvo) => {
+  const processarDados = (linhasAlvo, alertas = []) => {
     if (!linhasAlvo || !Array.isArray(linhasAlvo)) {
       setPrevisoes([]); setLinhasAgrupadas([]); return
     }
 
-    // ── MODO RETRAÍDO: uma linha por previsão ──
+    // Mapa de alertas por id_linha_hash (uma entrada por linha, primeiro alerta)
+    const alertaMap = {}
+    if (alertas && alertas.length) {
+      alertas.forEach(a => {
+        if (!alertaMap[a.id_linha_hash]) alertaMap[a.id_linha_hash] = a
+      })
+    }
+
+    // ── MODO RETRAÍDO ──
     let flat = []
     linhasAlvo.forEach(linha => {
       if (!linha.proximos || linha.proximos.length === 0) return
@@ -112,9 +162,13 @@ function Sidebar({ stopHash, onClose }) {
           codigo = "METRÔ"
       }
       const cor = linha.cor_operadora || '#71717a'
+      const alerta = alertaMap[linha.id_linha] || null
       linha.proximos.forEach(p => {
-        flat.push({ codigo: codigo || "", destino: linha.destino, corBg: cor,
-          horarioMeta: p.horario, amanha: p.proximo_dia === true, veiculo: p.veiculo || null })
+        flat.push({
+          codigo: codigo || "", destino: linha.destino, corBg: cor,
+          horarioMeta: p.horario, amanha: p.proximo_dia === true,
+          veiculo: p.veiculo || null, alerta
+        })
       })
     })
     flat.sort((a, b) => {
@@ -123,7 +177,7 @@ function Sidebar({ stopHash, onClose }) {
     })
     setPrevisoes(flat)
 
-    // ── MODO EXPANDIDO: agrupado por linha, até 3 horários ──
+    // ── MODO EXPANDIDO ──
     let mapa = {}
     linhasAlvo.forEach(linha => {
       if (!linha.proximos || linha.proximos.length === 0) return
@@ -134,9 +188,16 @@ function Sidebar({ stopHash, onClose }) {
       }
       const cor = linha.cor_operadora || '#71717a'
       const chave = `${codigo}_${linha.destino}`
+      const alerta = alertaMap[linha.id_linha] || null
       if (!mapa[chave]) {
-        mapa[chave] = { codigo: codigo || "", destino: linha.destino,
-          nomeDestino: linha.nome_linha || '', corBg: cor, horarios: [] }
+        mapa[chave] = {
+          codigo: codigo || "", 
+          destino: linha.destino, 
+          nomeDestino: linha.nome_linha || '', // Corrigido aqui: mudado de 'inline' para 'linha'
+          corBg: cor,
+          horarios: [], 
+          alerta
+        }
       }
       linha.proximos.forEach(p => {
         mapa[chave].horarios.push({ horarioMeta: p.horario, amanha: p.proximo_dia === true, veiculo: p.veiculo || null })
@@ -173,7 +234,7 @@ function Sidebar({ stopHash, onClose }) {
     fetchPrevisoes(false)
     const iv = setInterval(() => fetchPrevisoes(true), 30000)
     return () => clearInterval(iv)
-  }, [stopHash])
+  }, [fetchPrevisoes])
 
   useEffect(() => { setIsExpanded(false) }, [stopHash])
 
@@ -194,11 +255,14 @@ function Sidebar({ stopHash, onClose }) {
         </tr>
       </thead>
       <tbody className={isRefresh ? "flash-refresh" : ""}>
-        {previsoes.map((item, idx) => (
-          item && (
-            <tr key={idx}
+        {previsoes.map((item, idx) => {
+          if (!item) return null
+          const bgColor = idx % 2 === 0 ? '#ffffff' : '#f1f5f9'
+          return (
+            <tr
+              key={idx}
               className={item.veiculo ? "linha-com-gps" : ""}
-              style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f1f5f9' }}
+              style={{ backgroundColor: bgColor }}
             >
               <td className="col-horario">
                 <div className="container-tempo">
@@ -212,10 +276,13 @@ function Sidebar({ stopHash, onClose }) {
                   {item.codigo}
                 </span>
               </td>
-              <td className="col-destino">{item.destino}</td>
+              <td className="col-destino">
+                <div>{item.destino}</div>
+                {/* {item.alerta && <AlertDisclaimer alerta={item.alerta} />} */}
+              </td>
             </tr>
           )
-        ))}
+        })}
       </tbody>
     </table>
   )
@@ -235,10 +302,12 @@ function Sidebar({ stopHash, onClose }) {
           if (!item) return null
           const temGps = item.horarios.some(h => h.veiculo)
           const slots = item.horarios.slice(0, 3)
+          const bgColor = idx % 2 === 0 ? '#ffffff' : '#f1f5f9'
           return (
-            <tr key={idx}
+            <tr
+              key={idx}
               className={temGps ? "linha-com-gps" : ""}
-              style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f1f5f9' }}
+              style={{ backgroundColor: bgColor }}
             >
               <td className="col-linha-exp">
                 <span className="badge-linha" style={{ backgroundColor: item.corBg, color: corTexto(item.corBg) }}>
@@ -248,6 +317,7 @@ function Sidebar({ stopHash, onClose }) {
               <td className="col-destino-exp">
                 <div className="destino-principal">{item.destino}</div>
                 {item.nomeDestino && <div className="destino-sub">{item.nomeDestino}</div>}
+                {item.alerta && <AlertDisclaimer alerta={item.alerta} />}
               </td>
               <td className="col-horario-exp">
                 <div className="horarios-expandidos">
@@ -270,16 +340,17 @@ function Sidebar({ stopHash, onClose }) {
   const semDados = !previsoes || previsoes.length === 0
 
   return (
-    <aside id="sidebar" className={isExpanded ? 'expanded' : ''}>
+    <aside id="sidebar" ref={sidebarRef} className={isExpanded ? 'expanded' : ''}>
       <div className="actions-container">
-        {/* Botão expandir só aparece se a janela estiver maximizada */}
         {podeExpandir && (
           <button className="btn-topo btn-expandir" onClick={() => setIsExpanded(!isExpanded)}
             title={isExpanded ? "Recolher" : "Expandir"}>
-            {isExpanded ? "⛶" : "🗖"}
+            {isExpanded ? <IoMdContract /> : <FaExpand />}
           </button>
         )}
-        <button className="btn-topo" onClick={onClose} title="Fechar">&times;</button>
+        <button className="btn-topo" onClick={onClose} title="Fechar">
+          <IoCloseOutline />
+        </button>
       </div>
 
       <div className="sidebar-header">
