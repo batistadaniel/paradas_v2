@@ -3,8 +3,8 @@ import { MapContainer, TileLayer, LayersControl, useMap, useMapEvents, Marker } 
 import L from 'leaflet'
 
 const CENTRO_BRASILIA = [-15.7938, -47.8827]
-const CAMINHO_ICONE_PARADA = 'src/assets/img/bus-stop-icon-4.png'
-const CAMINHO_ICONE_ESTACAO = 'src/assets/img/subway-stop-icon.png'
+const CAMINHO_ICONE_PARADA = 'assets/img/bus-stop-icon-4.png'
+const CAMINHO_ICONE_ESTACAO = 'assets/img/subway-stop-icon.png'
 
 // Nomes de pontos que devem exibir o ícone de estação de metrô
 const NOMES_ESTACAO_METRO = new Set([
