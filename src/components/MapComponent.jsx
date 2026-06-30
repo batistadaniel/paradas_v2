@@ -3,18 +3,43 @@ import { MapContainer, TileLayer, LayersControl, useMap, useMapEvents, Marker } 
 import L from 'leaflet'
 
 const CENTRO_BRASILIA = [-15.7938, -47.8827]
-const CAMINHO_ICONE_LOCAL = 'https://bus2.info/assets/images/pins/Bus2_pinBus.png'
+const CAMINHO_ICONE_PARADA = 'src/assets/img/bus-stop-icon-4.png'
+const CAMINHO_ICONE_ESTACAO = 'src/assets/img/subway-stop-icon.png'
 
-const stopIconNormal = L.divIcon({
-  html: '<div class="stop-button"></div>',
-  className: 'custom-stop-icon',
-  iconSize: [7, 7],
-  iconAnchor: [3.5, 3.5]
-})
+// Nomes de pontos que devem exibir o ícone de estação de metrô
+const NOMES_ESTACAO_METRO = new Set([
+  'Central',
+  'Galeria',
+  '102 Sul',
+  '106 Sul',
+  '108 Sul',
+  '110 Sul',
+  '112 Sul',
+  '114 Sul',
+  'Asa Sul',
+  'Shopping',
+  'Feira',
+  'Guará',
+  'Arniqueiras',
+  'Águas Claras',
+  'Taguatinga Sul',
+  'Furnas',
+  'Samambaia Sul',
+  'Samambaia',
+  'Concessionárias',
+  'Estrada Parque',
+  'Praça do Relógio',
+  'Centro Metropolitano',
+  'Ceilândia Sul',
+  'Guariroba',
+  'Ceilândia Centro',
+  'Ceilândia Norte',
+  'Ceilândia'
+])
 
 // COMPONENTE AUXILIAR INTERNO PARA GERENCIAR EVENTOS E FILTRAGEM INSTANTÂNEA
 function MapController({ todasParadas, setParadasVisiveis, setZoomAtual }) {
-  const map = useMap() // Obtém a instância real do mapa Leaflet instantaneamente
+  const map = useMap()
 
   const filtrarMarcadores = () => {
     if (!map || todasParadas.length === 0) return
@@ -47,14 +72,11 @@ function MapController({ todasParadas, setParadasVisiveis, setZoomAtual }) {
     setParadasVisiveis(filtrados)
   }
 
-  // Escuta os eventos do usuário mexendo no mapa
   useMapEvents({
     moveend: () => filtrarMarcadores(),
     zoomend: () => filtrarMarcadores()
   })
 
-  // Esse useEffect é o segredo! Assim que as paradas chegam da API,
-  // ele roda o filtro imediatamente na tela atual, sem precisar mexer no mapa.
   useEffect(() => {
     filtrarMarcadores()
   }, [todasParadas])
@@ -66,6 +88,7 @@ function MapComponent({ onSelectStop }) {
   const [todasParadas, setTodasParadas] = useState([])
   const [paradasVisiveis, setParadasVisiveis] = useState([])
   const [zoomAtual, setZoomAtual] = useState(16)
+  const [paradaSelecionadaId, setParadaSelecionadaId] = useState(null)
 
   // Carrega as paradas da API
   useEffect(() => {
@@ -76,6 +99,11 @@ function MapComponent({ onSelectStop }) {
       })
       .catch(err => console.error("Erro na API de paradas:", err))
   }, [])
+
+  const handleSelecionarParada = (parada) => {
+    setParadaSelecionadaId(parada.id_parada_hash)
+    onSelectStop(parada.id_parada_hash)
+  }
 
   return (
     <MapContainer 
@@ -101,7 +129,6 @@ function MapComponent({ onSelectStop }) {
         </LayersControl.BaseLayer>
       </LayersControl>
 
-      {/* Controladora ativa que injeta as funções de tempo real do mapa */}
       <MapController 
         todasParadas={todasParadas} 
         setParadasVisiveis={setParadasVisiveis} 
@@ -109,13 +136,31 @@ function MapComponent({ onSelectStop }) {
       />
 
       {paradasVisiveis.map((parada) => {
-        let iconeDefinido = stopIconNormal
+        const estaSelecionada = paradaSelecionadaId === parada.id_parada_hash
+        let iconeDefinido
+
         if (zoomAtual >= 16) {
-          let tam = zoomAtual >= 19 ? 22 : 26
+          // MODO COM ÍCONE DE IMAGEM (Mantém o tamanho original intacto)
+          let tam = zoomAtual >= 19 ? 28 : 30
+          const ehEstacaoMetro = NOMES_ESTACAO_METRO.has(parada.nome)
+          
           iconeDefinido = L.icon({
-            iconUrl: CAMINHO_ICONE_LOCAL,
+            iconUrl: ehEstacaoMetro ? CAMINHO_ICONE_ESTACAO : CAMINHO_ICONE_PARADA,
             iconSize: [tam, tam],
-            iconAnchor: [tam / 2, tam / 2]
+            iconAnchor: [tam / 2, tam / 2],
+            className: estaSelecionada ? 'icone-parada-selecionada' : ''
+          })
+        } else {
+          // MODO ZOOM AFASTADO (Bolinha controlada)
+          const tamBolinha = estaSelecionada ? 14 : 7
+          const anchorBolinha = tamBolinha / 2
+          const classeBolinha = estaSelecionada ? 'stop-button stop-button-selecionado' : 'stop-button'
+
+          iconeDefinido = L.divIcon({
+            html: `<div class="${classeBolinha}" style="width: ${tamBolinha}px; height: ${tamBolinha}px;"></div>`,
+            className: 'custom-stop-icon',
+            iconSize: [tamBolinha, tamBolinha],
+            iconAnchor: [anchorBolinha, anchorBolinha]
           })
         }
 
@@ -124,8 +169,9 @@ function MapComponent({ onSelectStop }) {
             key={parada.id_parada_hash}
             position={[parada.latitude, parada.longitude]}
             icon={iconeDefinido}
+            zIndexOffset={estaSelecionada ? 1000 : 0}
             eventHandlers={{
-              click: () => onSelectStop(parada.id_parada_hash)
+              click: () => handleSelecionarParada(parada)
             }}
           />
         )
